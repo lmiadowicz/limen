@@ -53,6 +53,25 @@ npm link
 
 `npm link` puts that clone on `PATH`. The binary reads `hook/` and `templates/` next to itself. Projects do not copy those files. After `git pull` on the clone, `/reload` the coordinator.
 
+### Fork note (lmiadowicz/limen)
+
+This fork adds ticket-lane commands (`limen activate`, and `limen close` that moves `planned|active` → `spec/features/done/YYYY-MM/`) plus spawn auto-promotion when a prompt references a `planned/` ticket path. Upstream `@overment/limen` does not include those behaviors.
+
+Install the fork globally from git:
+
+```bash
+npm i -g github:lmiadowicz/limen
+```
+
+Or clone and link:
+
+```bash
+git clone https://github.com/lmiadowicz/limen.git
+cd limen
+npm install
+npm link
+```
+
 Then in each project:
 
 ```bash
@@ -197,6 +216,7 @@ limen watch <id|suffix|label> | --running
 limen unwatch <id|suffix|label> | --all
 limen open <id|suffix|label>
 limen close <FNNN>
+limen activate <FNNN>
 ```
 
 IDs, unique suffixes, and unique labels are interchangeable where shown.

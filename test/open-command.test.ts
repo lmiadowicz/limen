@@ -103,15 +103,16 @@ test("close leftover tabs for a proven feature and leaves job files", async (con
 	const keep = onlyJobId(limenWithEnv(scratch, env, "spawn", "--detached", "--label", "F012 spaces", "make commit").stdout);
 	const other = onlyJobId(limenWithEnv(scratch, env, "spawn", "--detached", "--label", "F010 other", "make commit").stdout);
 	await Promise.all([waitForState(scratch.root, keep, "done"), waitForState(scratch.root, other, "done")]);
-	const active = limenWithEnv(scratch, env, "close", "F012");
-	assert.equal(active.status, 1);
-	assert.match(active.stderr, /not in done\/ or dropped/);
-	await mkdir(join(scratch.root, "spec/features/done/2026-08/F012-herdr-job-spaces"), { recursive: true });
+	const missing = limenWithEnv(scratch, env, "close", "F012");
+	assert.equal(missing.status, 1);
+	assert.match(missing.stderr, /not found under spec\/features/);
+	await mkdir(join(scratch.root, "spec/features/active/F012-herdr-job-spaces"), { recursive: true });
 	// F035: terminal jobs auto-close, so the sweep exercises a recreated log tab.
 	const reopened = limenWithEnv(scratch, env, "open", keep);
 	assert.match(reopened.stdout, /opened F012 spaces/);
 	const swept = limenWithEnv(scratch, env, "close", "F012");
 	assert.equal(swept.status, 0, swept.stderr);
+	assert.match(swept.stdout, /moved spec\/features\/active\/F012-herdr-job-spaces →/);
 	assert.match(swept.stdout, /closed 1 leftover tab for F012/);
 	assert.doesNotMatch(await readFile(herdr.calls, "utf8"), /tab close coord:tab/);
 	await access(join(scratch.root, ".limen/jobs", keep, "task.md"));

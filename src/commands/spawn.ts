@@ -5,6 +5,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { signalProcessGroup, waitForProcessGroup } from "../contain.ts";
+import { promotePlannedPathsInTask } from "../features.ts";
 import { finishWebhookEnv } from "../finish-webhook.ts";
 import {
 	addBranchWorktree,
@@ -90,7 +91,12 @@ export async function spawnCommand(args: readonly string[], cwd: string): Promis
 	if (workspace && !options.repo) throw new Error("workspace spawn requires --repo <immediate-child>");
 	if (!workspace && options.repo) throw new Error("--repo is available only from a non-Git workspace coordinator");
 	const repository = workspace ? workspaceRepository(root, options.repo ?? "") : root;
-	const task = loaded.raw ? loaded.text : workspace ? workspaceTask(options.task, root, options.repo ?? "") : options.task;
+	let task = loaded.raw ? loaded.text : workspace ? workspaceTask(options.task, root, options.repo ?? "") : options.task;
+	if (!loaded.raw) {
+		const promoted = await promotePlannedPathsInTask(root, task);
+		for (const message of promoted.promotions) console.log(message);
+		task = promoted.task;
+	}
 	const role = options.review ? "reviewer" : (options.role ?? "worker");
 	const preamble = resolvePreamble(root, role);
 	const id = makeJobId(options.label);
