@@ -188,8 +188,14 @@ writeFileSync("pi-env.json", JSON.stringify({ internal: process.env.LIMEN_INTERN
 console.log(JSON.stringify({ type: "agent_start" }));
 console.log(JSON.stringify({ type: "tool_execution_start", toolName: "bash", args: { command: "git status" } }));
 console.log(JSON.stringify({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "fake pi completed" }] } }));
-if (task.includes("make commit")) {
-  writeFileSync("candidate.txt", "candidate\\n");
+if (!task.includes("without code") && !task.includes("docs only") && !task.includes("evidence only")) {
+  try {
+    writeFileSync("candidate.js", "export const candidate = true;\\n");
+    execFileSync("git", ["add", "candidate.js"]);
+    execFileSync("git", ["commit", "-m", "candidate"]);
+  } catch {}
+} else if (task.includes("make commit")) {
+  writeFileSync("candidate.js", "export const candidate = true;\\n");
   execFileSync("git", ["add", "."]);
   execFileSync("git", ["commit", "-m", "candidate"]);
 }

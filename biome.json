@@ -22,6 +22,6 @@
 		}
 	},
 	"files": {
-		"includes": ["**", "!!node_modules", "!!package-lock.json"]
+		"includes": ["**", "!!node_modules", "!!package-lock.json", "!!dist"]
 	}
 }

@@ -42,7 +42,7 @@ test("workspace coordinates explicit child repositories while its specs stay out
 	const jobs = limen(workspace, "jobs", "--all");
 	assert.equal(jobs.status, 0, jobs.stderr);
 	assert.match(jobs.stdout, /repo api/);
-	assert.match(jobs.stdout, /candidate.txt/);
+	assert.match(jobs.stdout, /candidate.js/);
 	const review = onlyJobId(limen(workspace, "spawn", "--repo", "api", "--review", "--branch", `limen/${worker}`, "review candidate").stdout);
 	await waitForState(workspace.root, review, "done");
 	assert.equal(await readFile(join(workspace.root, ".limen/jobs", review, "repo"), "utf8"), "api\n");

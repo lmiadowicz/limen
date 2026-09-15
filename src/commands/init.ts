@@ -1,12 +1,12 @@
 import { constants } from "node:fs";
 import { access, appendFile, copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { formatDrift, listDrift, removeHookCopies } from "../../hook/inherit.ts";
 import { registerProject } from "../../hook/seat.ts";
 import { isGitRepository, repoRoot, workspaceRoot } from "../git.ts";
+import { packageRoot } from "../paths.ts";
 
-const ROOT = fileURLToPath(new URL("../..", import.meta.url));
+const ROOT = packageRoot();
 export async function initCommand(args: readonly string[], cwd: string): Promise<void> {
 	const drop = args[0] === "--drop-leftovers";
 	if (args.length && !(drop && args.length === 1)) throw new Error("init takes no arguments, or only --drop-leftovers");

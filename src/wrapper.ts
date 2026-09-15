@@ -1,14 +1,15 @@
 import { spawn } from "node:child_process";
 import { appendFile, open, readdir, readFile, rename, rm } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import { containEscapedDescendants, discoverEscapedDescendants, processAlive, processInfo, signalProcessGroup } from "./contain.ts";
+import { EVIDENCE_ONLY_REASON, shouldFailEvidenceOnly } from "./evidence.ts";
 import { deliverFinishWebhook } from "./finish-webhook.ts";
 import { changedFileCount, commitList } from "./git.ts";
 import { settleJobTab } from "./herdr.ts";
+import { packageBin, packageHookDir } from "./paths.ts";
 import { createClaudeStreamParser, createStreamParser, type StreamEvent } from "./stream.ts";
 
 const STOP_GRACE_MS = 5_000;
-const HOOK = fileURLToPath(new URL("../hook", import.meta.url));
+const HOOK = packageHookDir();
 // A job is one short turn. These bounds stop a silent runaway from burning a session; they are not a review gate.
 const DEFAULT_TIMEOUT_MS = 90 * 60_000;
 const MAX_TOOL_CALLS = 900;
@@ -37,7 +38,7 @@ export async function launchHostedSupervisor(environment: Readonly<Record<string
 	return launchDetached({ LIMEN_HOSTED_RECOVER: "", ...environment, LIMEN_INTERNAL_HOSTED: "1" });
 }
 async function launchDetached(environment: Readonly<Record<string, string>>): Promise<number> {
-	const executable = fileURLToPath(new URL("../bin/limen", import.meta.url));
+	const executable = packageBin();
 	const child = spawn(process.execPath, [executable], {
 		detached: true,
 		stdio: "ignore",
@@ -189,11 +190,17 @@ export const requestedTerminal = (reason: string): "done" | "stopped" => (reason
 export async function finalizeJob(jobDir: string, state: "done" | "failed" | "stopped", detail: string, shutdownDeadline?: number): Promise<void> {
 	if (["done", "failed", "stopped"].includes(await textFile(`${jobDir}/state`))) return;
 	await recordCommits(jobDir).catch(() => {});
+	let finalState = state;
+	let finalDetail = detail;
+	if (state === "done" && (await shouldFailEvidenceOnly(jobDir))) {
+		finalState = "failed";
+		finalDetail = EVIDENCE_ONLY_REASON;
+	}
 	await atomicWrite(`${jobDir}/finished-at`, `${new Date().toISOString()}\n`);
 	// The terminal log line lands before the state flip; state is the commit point observers key on, and the story must already be durable when they see it.
 	const inbox = await readdir(`${jobDir}/steer/inbox`).catch(() => []);
-	await appendLimenLog(jobDir, inbox.length ? `${state}: ${detail}; ${inbox.length} steer(s) never delivered` : `${state}: ${detail}`).catch(() => {});
-	await atomicWrite(`${jobDir}/state`, `${state}\n`);
+	await appendLimenLog(jobDir, inbox.length ? `${finalState}: ${finalDetail}; ${inbox.length} steer(s) never delivered` : `${finalState}: ${finalDetail}`).catch(() => {});
+	await atomicWrite(`${jobDir}/state`, `${finalState}\n`);
 	await rm(`${jobDir}/pid`, { force: true });
 	await rm(`${jobDir}/born`, { force: true });
 	// A tmp whose writer still runs is an in-flight rename by a racing finalizer, not a leftover; deleting it makes that rename ENOENT and crashes the other process.

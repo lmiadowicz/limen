@@ -1,6 +1,5 @@
 import { existsSync } from "node:fs";
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import { cleanWorktree } from "./git.ts";
 import {
 	type HerdrPlace,
@@ -13,11 +12,12 @@ import {
 	startHostedPi,
 	stopHostedAgent,
 } from "./herdr.ts";
+import { packageRoot } from "./paths.ts";
 import { prepareRecoveredOwner } from "./recovery.ts";
 import { assistantStopReason, assistantText } from "./stream.ts";
 import { appendLimenLog, atomicWrite, finalizeJob, isFailedStopReason, recordCommits, requestedTerminal, textFile, writeHandshake } from "./wrapper.ts";
 
-const PACKAGE_ROOT = fileURLToPath(new URL("..", import.meta.url));
+const PACKAGE_ROOT = packageRoot();
 const HOSTED_UNKNOWN_SAMPLES = 5;
 const DEFAULT_HOSTED_START_MS = 5_000;
 export const DEFAULT_HOSTED_IDLE_MS = 60_000;

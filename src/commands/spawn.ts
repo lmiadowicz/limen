@@ -3,8 +3,8 @@ import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { signalProcessGroup, waitForProcessGroup } from "../contain.ts";
+import { assertFeatureTipAvailable, extractFeatureId } from "../feature-tip.ts";
 import { promotePlannedPathsInTask } from "../features.ts";
 import { finishWebhookEnv } from "../finish-webhook.ts";
 import {
@@ -21,6 +21,7 @@ import {
 } from "../git.ts";
 import { herdrAvailable, openHostedTab, openWatchTab } from "../herdr.ts";
 import { parseDuration } from "../job.ts";
+import { packageRoot } from "../paths.ts";
 import { liveJob } from "../reap.ts";
 import { appendLimenLog, atomicWrite, finalizeJob, launchHostedSupervisor, launchWrapper } from "../wrapper.ts";
 import { hunkBinary } from "./diff.ts";
@@ -40,10 +41,11 @@ type SpawnOptions = {
 	review: boolean;
 	tab: boolean;
 	detached: boolean;
+	force: boolean;
 	role?: string;
 	engine?: string;
 };
-const PACKAGE_ROOT = fileURLToPath(new URL("../..", import.meta.url));
+const PACKAGE_ROOT = packageRoot();
 export function resolvePreamble(root: string, role: string): string {
 	for (const path of [`${root}/.agents/limen/${role}.md`, `${PACKAGE_ROOT}/templates/${role}.md`]) if (existsSync(path)) return path;
 	throw new Error(`no preamble for role ${role}`);
@@ -98,6 +100,16 @@ export async function spawnCommand(args: readonly string[], cwd: string): Promis
 		task = promoted.task;
 	}
 	const role = options.review ? "reviewer" : (options.role ?? "worker");
+	if (!options.review && role === "worker") {
+		const tipBranch = options.branch?.trim();
+		const existing = tipBranch ? worktreeForBranch(repository, tipBranch) : undefined;
+		const reusing = Boolean(existing && resolve(existing.path) !== resolve(root));
+		await assertFeatureTipAvailable(root, extractFeatureId(options.label, task), {
+			force: options.force,
+			...(tipBranch ? { branch: tipBranch } : {}),
+			...(reusing ? { existingWorktree: true } : {}),
+		});
+	}
 	const preamble = resolvePreamble(root, role);
 	const id = makeJobId(options.label);
 	const jobsRoot = `${root}/.limen/jobs`;
@@ -314,6 +326,7 @@ function parseSpawnArgs(args: readonly string[]): SpawnOptions {
 	let review = false,
 		tab = false,
 		detached = false,
+		force = false,
 		positional = false;
 	const task: string[] = [];
 	for (let index = 0; index < args.length; index += 1) {
@@ -323,6 +336,7 @@ function parseSpawnArgs(args: readonly string[]): SpawnOptions {
 		else if (!positional && value === "--review") review = true;
 		else if (!positional && value === "--tab") tab = true;
 		else if (!positional && value === "--detached") detached = true;
+		else if (!positional && value === "--force") force = true;
 		else if (!positional && value.startsWith("--")) {
 			if (!["--branch", "--repo", "--label", "--model", "--provider", "--thinking", "--timeout", "--task-file", "--prepare", "--role", "--engine"].includes(value))
 				throw new Error(`unknown spawn option ${value}`);
@@ -349,7 +363,7 @@ function parseSpawnArgs(args: readonly string[]): SpawnOptions {
 	if (review && role) throw new Error("--role and --review cannot be combined");
 	if (taskFile && task.length) throw new Error("spawn accepts a positional task or --task-file, not both");
 	if (!taskFile && (task.length === 0 || !task.join(" ").trim())) throw new Error("spawn requires task text");
-	const out: SpawnOptions = { task: task.join(" "), review, tab, detached, ...(role ? { role } : {}), ...(engine ? { engine } : {}) };
+	const out: SpawnOptions = { task: task.join(" "), review, tab, detached, force, ...(role ? { role } : {}), ...(engine ? { engine } : {}) };
 	if (label) out.label = label;
 	if (taskFile) out.taskFile = taskFile;
 	if (prepare) out.prepare = prepare;

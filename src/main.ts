@@ -1,16 +1,20 @@
 import { activateCommand } from "./commands/activate.ts";
+import { boardCommand, reconcileCommand } from "./commands/board.ts";
 import { closeCommand } from "./commands/close.ts";
 import { continueCommand } from "./commands/continue.ts";
 import { diffCommand } from "./commands/diff.ts";
 import { initCommand, workspaceCommand } from "./commands/init.ts";
 import { jobsCommand } from "./commands/jobs.ts";
+import { keepersCommand } from "./commands/keepers.ts";
 import { linearCommand } from "./commands/linear.ts";
 import { openCommand } from "./commands/open.ts";
 import { pruneCommand } from "./commands/prune.ts";
+import { refillCommand } from "./commands/refill.ts";
 import { spawnCommand } from "./commands/spawn.ts";
 import { steerCommand } from "./commands/steer.ts";
 import { stopCommand } from "./commands/stop.ts";
 import { sweepCommand } from "./commands/sweep.ts";
+import { targetCommand } from "./commands/target.ts";
 import { ticketAuthorCommand } from "./commands/ticket-author.ts";
 import { waitCommand } from "./commands/wait.ts";
 import { unwatchCommand, watchCommand } from "./commands/watch.ts";
@@ -37,6 +41,11 @@ const COMMANDS = {
 	sweep: sweepCommand,
 	linear: linearCommand,
 	"ticket-author": ticketAuthorCommand,
+	target: targetCommand,
+	keepers: keepersCommand,
+	refill: refillCommand,
+	board: boardCommand,
+	reconcile: reconcileCommand,
 } as const satisfies Record<
 	| "init"
 	| "workspace"
@@ -55,7 +64,12 @@ const COMMANDS = {
 	| "activate"
 	| "sweep"
 	| "linear"
-	| "ticket-author",
+	| "ticket-author"
+	| "target"
+	| "keepers"
+	| "refill"
+	| "board"
+	| "reconcile",
 	Command
 >;
 const HELP = `limen — isolated coding jobs with files and git
@@ -63,7 +77,7 @@ usage:
   limen init
   limen init --drop-leftovers
   limen workspace init
-  limen spawn "Implement FNNN: <outcome>. Start by writing <slice>. Ticket: spec/features/active/FNNN-slug/ticket.md" [--label L] [--model X] [--branch B] [--role NAME] [--timeout 20m; default 90m] [--task-file F|-] [--prepare CMD]
+  limen spawn "Implement FNNN: <outcome>. Start by writing <slice>. Ticket: spec/features/active/FNNN-slug/ticket.md" [--label L] [--model X] [--branch B] [--role NAME] [--timeout 20m; default 90m] [--task-file F|-] [--prepare CMD] [--force]
   limen spawn --role advisor --engine claude --detached "…"   # a perspective from claude; detached only, never merges
   limen spawn "…" [--label L] [--provider P] [--model X] [--thinking T]  # Pi flags; in Herdr: hosted, else detached
   limen spawn --tab "…"                            # force hosted (requires Herdr; no --timeout)
@@ -84,6 +98,10 @@ usage:
   limen close <FNNN>                              # planned|active → done/YYYY-MM, then close leftover tabs
   limen activate <FNNN>                           # planned → active
   limen ticket-author <ticket-path>                 # creation-commit author, following Git renames
+  limen target [N]                                  # get/set project concurrent tip TARGET (.limen/target)
+  limen keepers | limen keepers set F007,#225,F012  # ordered keepers (.limen/keepers)
+  limen refill [--detached|--tab] [--force] [--dry-run]  # spawn/continue toward TARGET using keepers
+  limen board|reconcile [--apply] [--apply-stale-to-planned]
   limen sweep [--install|--uninstall]
   limen linear [on [--team T --project P]|off|status]   # Linear mirror toggle — renames spec/linear.md ↔ .off; --team/--project write a fresh config
 Pass a short coordinator instruction, not $(cat ticket.md). The ticket is a pointer, not the prompt.`;

@@ -13,28 +13,34 @@ test("architecture stays small, pure, direct, and dependency-free", async () => 
 	};
 	assert.deepEqual(packageJson.dependencies, {});
 	assert.deepEqual(packageJson.bin, { limen: "bin/limen" });
+	assert.match(await readFile(join(ROOT, "bin/limen"), "utf8"), /dist\/src\/main\.js/);
+	assert.equal((await import("node:fs")).existsSync(join(ROOT, "dist/src/main.js")), true);
 	assert.deepEqual((await readdir(join(ROOT, "bin"))).sort(), ["limen", "tony-finish-ping.sh"]);
 	const source = await filesBelow(join(ROOT, "src"));
 	const sourceLines = (await Promise.all(source.map((path) => readFile(path, "utf8")))).reduce((sum, text) => sum + text.split("\n").length - 1, 0);
 	assert.ok(
-		sourceLines <= 4220,
-		`src has ${sourceLines} lines; includes ticket-lane activate/close moves, bounded finish-turn inspection, pruned-checkout continuation, and empty-result finish suppression`,
+		sourceLines <= 5600,
+		`src has ${sourceLines} lines; includes tip uniqueness, evidence-only gate, target/keepers/refill/board, job disambiguation, and Node 24 dist build`,
 	);
 	assert.doesNotMatch(await readFile(join(ROOT, "src/job.ts"), "utf8"), /from ["']node:/);
 	assert.deepEqual((await readdir(join(ROOT, "src/commands"))).sort(), [
 		"activate.ts",
+		"board.ts",
 		"close.ts",
 		"continue.ts",
 		"diff.ts",
 		"init.ts",
 		"jobs.ts",
+		"keepers.ts",
 		"linear.ts",
 		"open.ts",
 		"prune.ts",
+		"refill.ts",
 		"spawn.ts",
 		"steer.ts",
 		"stop.ts",
 		"sweep.ts",
+		"target.ts",
 		"ticket-author.ts",
 		"wait.ts",
 		"watch.ts",
@@ -47,10 +53,12 @@ test("architecture stays small, pure, direct, and dependency-free", async () => 
 	const names = all.filter((path) => path.endsWith(".ts")).map((path) => basename(path));
 	assert.equal(new Set(names).size, names.length, "TypeScript basenames must be unique");
 	const main = await readFile(join(ROOT, "src/main.ts"), "utf8");
-	assert.match(
-		main,
-		/satisfies\s+Record<\s*\|?\s*"init"\s*\|\s*"workspace"\s*\|\s*"spawn"\s*\|\s*"continue"\s*\|\s*"diff"\s*\|\s*"steer"\s*\|\s*"stop"\s*\|\s*"wait"\s*\|\s*"jobs"\s*\|\s*"prune"\s*\|\s*"watch"\s*\|\s*"unwatch"\s*\|\s*"open"\s*\|\s*"close"\s*\|\s*"activate"\s*\|\s*"sweep"\s*\|\s*"linear"\s*\|\s*"ticket-author"\s*,?\s*Command\s*>/,
-	);
+	assert.match(main, /"target"/);
+	assert.match(main, /"keepers"/);
+	assert.match(main, /"refill"/);
+	assert.match(main, /"board"/);
+	assert.match(main, /"reconcile"/);
+	assert.match(main, /satisfies\s+Record<[\s\S]*"ticket-author"[\s\S]*"reconcile"[\s\S]*Command\s*>/);
 });
 
 test("strict TypeScript and templates preserve the capability-judgment line", async () => {

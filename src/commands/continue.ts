@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { assertFeatureTipAvailable, extractFeatureId } from "../feature-tip.ts";
 import { addBranchWorktree, branchExists, headCommit, repoRoot, workspaceRepository, workspaceRoot } from "../git.ts";
 import { herdrAvailable, openWatchTab } from "../herdr.ts";
 import { resolveJob } from "../lookup.ts";
@@ -22,6 +23,7 @@ export async function continueCommand(args: readonly string[], cwd: string): Pro
 	let review = false;
 	let tab = false;
 	let detached = false;
+	let force = false;
 	let label: string | undefined;
 	let model: string | undefined, provider: string | undefined, thinking: string | undefined;
 	const positional: string[] = [];
@@ -31,6 +33,7 @@ export async function continueCommand(args: readonly string[], cwd: string): Pro
 		if (value === "--review") review = true;
 		else if (value === "--tab") tab = true;
 		else if (value === "--detached") detached = true;
+		else if (value === "--force") force = true;
 		else if (value === "--label" || value === "--model" || value === "--provider" || value === "--thinking") {
 			const optionValue = args[index + 1];
 			if (!optionValue) throw new Error(`${value} requires a value`);
@@ -53,7 +56,7 @@ export async function continueCommand(args: readonly string[], cwd: string): Pro
 	preflightPi(chosenModel, provider);
 
 	const root = workspaceRoot(cwd) ?? repoRoot(cwd);
-	const { id: parentId, jobDir: parentDir } = await resolveJob(cwd, query);
+	const { id: parentId, jobDir: parentDir } = await resolveJob(cwd, query, "prefer-finished");
 	const parentState = await text(`${parentDir}/state`);
 	if (!["done", "failed", "stopped"].includes(parentState)) throw new Error(`job ${parentId} is ${parentState || "stateless"}; continue needs a finished job`);
 	const worktree = await text(`${parentDir}/worktree`);
@@ -67,6 +70,11 @@ export async function continueCommand(args: readonly string[], cwd: string): Pro
 	const inheritedSession = sessions.sort().at(-1);
 
 	const finalLabel = label ?? `${(await text(`${parentDir}/label`)) || parentId} · continue`;
+	await assertFeatureTipAvailable(root, extractFeatureId(finalLabel, instruction, await text(`${parentDir}/label`), await text(`${parentDir}/task.md`)), {
+		force,
+		branch,
+		existingWorktree: true,
+	});
 	const id = makeJobId(finalLabel);
 	const jobDir = `${root}/.limen/jobs/${id}`;
 	const role = review ? "reviewer" : (await text(`${parentDir}/role`)) || "worker";

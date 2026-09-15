@@ -47,7 +47,7 @@ test("spawn creates isolated branch, canonical record, runs pi, and resumes its 
 		.find((line) => line.includes(id));
 	assert.ok(worktreeLine);
 	const worktree = worktreeLine.slice("worktree ".length);
-	assert.equal(await readFile(join(worktree, "candidate.txt"), "utf8"), "candidate\n");
+	assert.equal(await readFile(join(worktree, "candidate.js"), "utf8"), "candidate\n");
 	const childEnvironment = JSON.parse(await readFile(join(worktree, "pi-env.json"), "utf8")) as {
 		internal?: string;
 		job?: string;
@@ -384,7 +384,7 @@ test("task-file and stdin write task.md bytes untouched", async (context) => {
 	assert.equal(await readFile(join(scratch.root, ".limen/jobs", stdinId, "task.md"), "utf8"), bytes.toString("utf8"));
 });
 
-test("spawn warns on a number-only or live-duplicate label and still starts", async (context) => {
+test("spawn warns on a number-only label and refuses a second live tip for the same F-id", async (context) => {
 	const scratch = await scratchRepo(`#!/usr/bin/env node
 process.on("SIGTERM", () => process.exit(0));
 setInterval(() => {}, 1000);
@@ -404,11 +404,13 @@ setInterval(() => {}, 1000);
 	const firstId = onlyJobId(first.stdout);
 	assert.match(firstId, /^\d{4}-\d{2}-\d{2}-f065-idle-backstop-[0-9a-f]{8}$/);
 	const duplicate = limen(scratch, "spawn", "--label", label, "long work");
-	assert.equal(duplicate.status, 0, duplicate.stderr);
-	assert.match(duplicate.stdout, /warning: a live job already holds this label/);
-	assert.match(duplicate.stdout, /started idle backstop · F065/);
-	assert.doesNotMatch(duplicate.stdout, /only a feature number/);
-	const duplicateId = onlyJobId(duplicate.stdout);
+	assert.equal(duplicate.status, 1);
+	assert.match(duplicate.stderr, /already has a live tip/);
+	assert.match(duplicate.stderr, new RegExp(firstId));
+	const forced = limen(scratch, "spawn", "--force", "--label", label, "long work");
+	assert.equal(forced.status, 0, forced.stderr);
+	assert.match(forced.stdout, /started idle backstop · F065/);
+	const duplicateId = onlyJobId(forced.stdout);
 	assert.notEqual(duplicateId, firstId);
 	assert.match(duplicateId, /^\d{4}-\d{2}-\d{2}-f065-idle-backstop-[0-9a-f]{8}$/);
 	for (const id of [numberId, firstId, duplicateId]) {

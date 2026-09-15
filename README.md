@@ -48,16 +48,17 @@ This part is yours. Once:
 git clone https://github.com/overment/limen.git
 cd limen
 npm install
+npm run build
 npm link
 ```
 
-`npm link` puts that clone on `PATH`. The binary reads `hook/` and `templates/` next to itself. Projects do not copy those files. After `git pull` on the clone, `/reload` the coordinator.
+`npm link` puts that clone on `PATH`. The binary prefers compiled `dist/` and reads `hook/` and `templates/` next to the package root. Projects do not copy those files. After `git pull` on the clone, run `npm run build` and `/reload` the coordinator.
 
 ### Fork note (lmiadowicz/limen)
 
-This fork adds ticket-lane commands (`limen activate`, and `limen close` that moves `planned|active` → `spec/features/done/YYYY-MM/`) plus spawn auto-promotion when a prompt references a `planned/` ticket path. Upstream `@overment/limen` does not include those behaviors.
+This fork adds ticket-lane commands (`limen activate`, and `limen close` that moves `planned|active` → `spec/features/done/YYYY-MM/`), spawn auto-promotion when a prompt references a `planned/` ticket path, one-F-id-one-live-tip enforcement, evidence-only≠done, and coordinator helpers (`target` / `keepers` / `refill` / `board`). Upstream `@overment/limen` does not include those behaviors.
 
-Install the fork globally from git:
+Install the fork globally from git (Node 24+; `prepare` builds `dist/`):
 
 ```bash
 npm i -g github:lmiadowicz/limen
@@ -68,9 +69,11 @@ Or clone and link:
 ```bash
 git clone https://github.com/lmiadowicz/limen.git
 cd limen
-npm install
+npm install   # runs prepare → npm run build
 npm link
 ```
+
+After `git pull`, run `npm run build` (or `npm install`) so `dist/` stays current; `bin/limen` prefers `dist/src/main.js` and falls back to TypeScript source under Node 24.
 
 Then in each project:
 
@@ -203,7 +206,7 @@ The coordinator does this. You only need it if you are looking at a stuck tab yo
 limen init
 limen init --drop-leftovers
 limen workspace init
-limen spawn "instruction" [--label L] [--provider P] [--model M] [--thinking T] [--branch B] [--role NAME] [--engine pi|claude] [--timeout 20m] [--task-file F|-] [--prepare CMD]
+limen spawn "instruction" [--label L] [--provider P] [--model M] [--thinking T] [--branch B] [--role NAME] [--engine pi|claude] [--timeout 20m] [--task-file F|-] [--prepare CMD] [--force]
 limen spawn --repo R "instruction" [--label L] [--model M]
 limen spawn --review --branch B --label L "instruction"
 limen jobs [--running|--active|--all|<id|suffix|label>]
@@ -217,9 +220,19 @@ limen unwatch <id|suffix|label> | --all
 limen open <id|suffix|label>
 limen close <FNNN>
 limen activate <FNNN>
+limen target [N]
+limen keepers | limen keepers set F007,#225,F012
+limen refill [--detached|--tab] [--force] [--dry-run]
+limen board|reconcile [--apply] [--apply-stale-to-planned]
 ```
 
-IDs, unique suffixes, and unique labels are interchangeable where shown.
+IDs, unique suffixes, and unique labels are interchangeable where shown. `stop` / `steer` / `open` resolve labels to a **running** job when several historical matches exist; if none are running, pass the full id. `continue` prefers a single finished match the same way.
+
+**One F-id → one live tip.** `spawn` (and `continue`) extract `FNNN` from the label/prompt/ticket path and refuse when another RUNNING job already owns that feature, or when an open GitHub PR's branch/title/labels contain it, unless `--force`.
+
+**Evidence-only ≠ done.** A worker (or other code role) that exits cleanly with no meaningful code delta versus the job base is recorded as `failed` with reason `evidence-only: no code delta` so refill/coordinators do not treat it as progress. Reviewer/advisor/researcher/judge/picture/quality roles are exempt.
+
+**TARGET / keepers / refill.** Store a concurrency target in `.limen/target` and an ordered keeper list in `.limen/keepers`. `limen refill` activates planned keepers and spawns or continues tips until live F-id count reaches TARGET (Aiffer can call this instead of shell scripts). `limen board` prints planned/active/done; `--apply` activates planned keepers that already have a live tip; `--apply-stale-to-planned` optionally moves stale active tickets with no job and no open PR back to planned (never automatic without the flag).
 
 At a terminal, `jobs` renders an aligned table for eyes; piped, it prints the compact format tools parse. `LIMEN_VIEW=human|compact` forces a view; `NO_COLOR` drops the paint.
 

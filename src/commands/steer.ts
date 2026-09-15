@@ -9,7 +9,7 @@ export async function steerCommand(args: readonly string[], cwd: string): Promis
 	const running = args[0] === "--running";
 	const message = args.slice(1).join(" ").trim();
 	if (!message || (!running && !args[0])) throw new Error(running ? "steer requires a message" : "steer requires a job id and a message");
-	const targets = running ? await watchedRunning(cwd) : [await resolveJob(cwd, args[0] ?? "")];
+	const targets = running ? await watchedRunning(cwd) : [await resolveJob(cwd, args[0] ?? "", "prefer-running")];
 	if (!targets.length) {
 		console.log("nothing was reached");
 		return;

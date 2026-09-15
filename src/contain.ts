@@ -1,12 +1,12 @@
 import { spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { packagePidinfoHelper } from "./paths.ts";
 import { appendLimenLog, atomicWrite } from "./wrapper.ts";
 
 const ESCAPED_TERM_GRACE_MS = 2_000;
 const ESCAPED_KILL_GRACE_MS = 1_000;
 const PROCESS_QUERY_TIMEOUT_MS = 1_000;
 const PROCESS_QUERY_MAX_BYTES = 1024 * 1024;
-const PIDINFO_HELPER = fileURLToPath(new URL("./proc-pidinfo.rb", import.meta.url));
+const PIDINFO_HELPER = packagePidinfoHelper();
 type ProcessIdentity = { readonly pid: number; readonly born: string };
 export type JobProcess = ProcessIdentity & { readonly pgid: number; readonly command: string };
 type ProcessInfo = JobProcess & { readonly ppid: number };

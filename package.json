@@ -8,17 +8,22 @@
 	},
 	"files": [
 		"bin",
+		"dist",
 		"src",
 		"hook",
 		"templates",
 		"README.md",
-		"LICENSE"
+		"LICENSE",
+		"tsconfig.json",
+		"tsconfig.build.json"
 	],
 	"scripts": {
 		"test": "node --test --test-concurrency=1 --test-timeout=60000 test/*.test.ts",
 		"typecheck": "tsc --noEmit",
 		"format": "biome format --write .",
-		"check": "tsc --noEmit && biome check . && node --test --test-concurrency=1 --test-timeout=60000 test/*.test.ts"
+		"check": "npm run build && tsc --noEmit && biome check . && node --test --test-concurrency=1 --test-timeout=60000 test/*.test.ts",
+		"build": "tsc -p tsconfig.build.json",
+		"prepare": "npm run build"
 	},
 	"engines": {
 		"node": ">=24"

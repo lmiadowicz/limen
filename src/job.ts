@@ -66,7 +66,12 @@ export function derivePulse(input: { readonly pid?: number; readonly alive: bool
 	if (input.activity === "tool" || input.activity === "wait") return input.activity;
 	return "think";
 }
-export function resolveJobId(query: string, ids: readonly string[], labels: Readonly<Record<string, string>> = {}): string {
+export type ResolveJobIdOptions = {
+	readonly mode?: "any" | "prefer-running" | "prefer-finished";
+	readonly states?: Readonly<Record<string, string>>;
+};
+
+export function resolveJobId(query: string, ids: readonly string[], labels: Readonly<Record<string, string>> = {}, options: ResolveJobIdOptions = {}): string {
 	const needle = query.trim();
 	if (!needle) throw new Error("job id required");
 	if (ids.includes(needle)) return needle;
@@ -74,8 +79,24 @@ export function resolveJobId(query: string, ids: readonly string[], labels: Read
 		const label = labels[id] ?? "";
 		return label === needle || (needle.length >= 3 && (id.endsWith(needle) || id.endsWith(`-${needle}`) || label.toLowerCase().startsWith(needle.toLowerCase())));
 	});
-	if (matches.length === 1) return matches[0] ?? needle;
 	if (matches.length === 0) throw new Error(`no job matches ${JSON.stringify(needle)}`);
+	if (matches.length === 1) return matches[0] ?? needle;
+	const mode = options.mode ?? "any";
+	const states = options.states ?? {};
+	if (mode === "prefer-running") {
+		const running = matches.filter((id) => states[id] === "running");
+		if (running.length === 1) return running[0] ?? needle;
+		if (running.length > 1) throw new Error(`ambiguous running job ${JSON.stringify(needle)}: ${running.join(", ")}`);
+		throw new Error(`ambiguous job ${JSON.stringify(needle)}: ${matches.join(", ")} (none running; pass the full job id)`);
+	}
+	if (mode === "prefer-finished") {
+		const finished = matches.filter((id) => ["done", "failed", "stopped"].includes(states[id] ?? ""));
+		if (finished.length === 1) return finished[0] ?? needle;
+		if (finished.length > 1) {
+			throw new Error(`ambiguous finished job ${JSON.stringify(needle)}: ${finished.join(", ")} (pass the full job id)`);
+		}
+		throw new Error(`no finished job matches ${JSON.stringify(needle)}`);
+	}
 	throw new Error(`ambiguous job ${JSON.stringify(needle)}: ${matches.join(", ")}`);
 }
 export function parseDuration(value: string): number {

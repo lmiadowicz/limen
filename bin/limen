@@ -1,10 +1,19 @@
 #!/usr/bin/env node
 
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+
 const major = Number.parseInt(process.versions.node, 10);
 if (!Number.isFinite(major) || major < 24) {
 	console.error(`limen requires Node.js 24 (this is ${process.versions.node})`);
 	process.exit(1);
 }
 
-const { main } = await import("../src/main.ts");
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const distEntry = join(root, "dist/src/main.js");
+const srcEntry = join(root, "src/main.ts");
+const entry = existsSync(distEntry) ? distEntry : srcEntry;
+const { main } = await import(pathToFileURL(entry).href);
 await main(process.argv.slice(2));

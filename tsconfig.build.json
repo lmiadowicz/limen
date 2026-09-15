@@ -1,0 +1,14 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"noEmit": false,
+		"outDir": "dist",
+		"rootDir": ".",
+		"allowImportingTsExtensions": false,
+		"rewriteRelativeImportExtensions": true,
+		"declaration": false,
+		"sourceMap": false,
+		"types": ["node"]
+	},
+	"include": ["src/**/*.ts", "hook/**/*.ts"]
+}
