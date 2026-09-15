@@ -2,6 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { appendFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { basename } from "node:path";
+import { findFeature, isTerminalLane } from "./features.ts";
 
 export type HerdrPlace = { readonly workspace: string; readonly tab: string; readonly pane: string; readonly mode: "watch" | "log" | "hosted" | "diff" };
 export type HostedAgentStatus = "idle" | "working" | "blocked" | "done" | "unknown" | "missing";
@@ -521,15 +522,8 @@ async function readPlace(jobDir: string, record?: "diff"): Promise<HerdrPlace | 
 }
 
 async function terminalFeature(root: string, feature: string): Promise<boolean> {
-	for (const lane of ["done", "dropped"] as const) {
-		const months = await readdir(`${root}/spec/features/${lane}`, { withFileTypes: true }).catch(() => []);
-		for (const month of months) {
-			if (!month.isDirectory()) continue;
-			const names = await readdir(`${root}/spec/features/${lane}/${month.name}`, { withFileTypes: true }).catch(() => []);
-			if (names.some((entry) => entry.isDirectory() && entry.name.toUpperCase().startsWith(`${feature}-`))) return true;
-		}
-	}
-	return false;
+	const found = await findFeature(root, feature);
+	return Boolean(found && isTerminalLane(found.lane));
 }
 
 function text(path: string): Promise<string> {

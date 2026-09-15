@@ -1,3 +1,4 @@
+import { activateCommand } from "./commands/activate.ts";
 import { closeCommand } from "./commands/close.ts";
 import { continueCommand } from "./commands/continue.ts";
 import { diffCommand } from "./commands/diff.ts";
@@ -32,6 +33,7 @@ const COMMANDS = {
 	unwatch: unwatchCommand,
 	open: openCommand,
 	close: closeCommand,
+	activate: activateCommand,
 	sweep: sweepCommand,
 	linear: linearCommand,
 	"ticket-author": ticketAuthorCommand,
@@ -50,6 +52,7 @@ const COMMANDS = {
 	| "unwatch"
 	| "open"
 	| "close"
+	| "activate"
 	| "sweep"
 	| "linear"
 	| "ticket-author",
@@ -78,7 +81,8 @@ usage:
   limen watch <id|suffix|label> | --running
   limen unwatch <id|suffix|label> | --all
   limen open <id|suffix|label>
-  limen close <FNNN>
+  limen close <FNNN>                              # planned|active → done/YYYY-MM, then close leftover tabs
+  limen activate <FNNN>                           # planned → active
   limen ticket-author <ticket-path>                 # creation-commit author, following Git renames
   limen sweep [--install|--uninstall]
   limen linear [on [--team T --project P]|off|status]   # Linear mirror toggle — renames spec/linear.md ↔ .off; --team/--project write a fresh config
