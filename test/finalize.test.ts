@@ -13,8 +13,8 @@ function wipeScratch(scratch: Scratch): void {
 
 const errorPi = `#!/usr/bin/env node
 const { execFileSync } = require("node:child_process");
-require("node:fs").writeFileSync("partial.txt", "useful work before the error\\n");
-execFileSync("git", ["add", "partial.txt"]);
+require("node:fs").writeFileSync("partial.js", "export const partial = true;\\n");
+execFileSync("git", ["add", "partial.js"]);
 execFileSync("git", ["commit", "-m", "partial before provider error"]);
 console.log(JSON.stringify({ type: "message_end", message: { role: "assistant", content: [], stopReason: "error", errorMessage: "usage limit reached" } }));
 `;
@@ -24,11 +24,21 @@ console.log(JSON.stringify({ type: "message_end", message: { role: "assistant", 
 `;
 
 const recoveredPi = `#!/usr/bin/env node
+const { writeFileSync } = require("node:fs");
+const { execFileSync } = require("node:child_process");
 console.log(JSON.stringify({ type: "message_end", message: { role: "assistant", content: [], stopReason: "error", errorMessage: "temporary" } }));
+writeFileSync("candidate.js", "export const candidate = true;\\n");
+execFileSync("git", ["add", "candidate.js"]);
+execFileSync("git", ["commit", "-m", "candidate"]);
 console.log(JSON.stringify({ type: "message_end", message: { role: "assistant", content: [], stopReason: "stop" } }));
 `;
 
 const lateSteerPi = `#!/usr/bin/env node
+const { writeFileSync } = require("node:fs");
+const { execFileSync } = require("node:child_process");
+writeFileSync("candidate.js", "export const candidate = true;\\n");
+execFileSync("git", ["add", "candidate.js"]);
+execFileSync("git", ["commit", "-m", "candidate"]);
 setTimeout(() => {
   console.log(JSON.stringify({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "finishing" }] } }));
 }, 400);

@@ -47,7 +47,9 @@ test("spawn creates isolated branch, canonical record, runs pi, and resumes its 
 		.find((line) => line.includes(id));
 	assert.ok(worktreeLine);
 	const worktree = worktreeLine.slice("worktree ".length);
-	assert.equal(await readFile(join(worktree, "candidate.js"), "utf8"), "candidate\n");
+	const produced = (await readdir(worktree)).find((name) => name.startsWith("candidate-") && name.endsWith(".js"));
+	assert.ok(produced);
+	assert.match(await readFile(join(worktree, produced), "utf8"), /export const candidate/);
 	const childEnvironment = JSON.parse(await readFile(join(worktree, "pi-env.json"), "utf8")) as {
 		internal?: string;
 		job?: string;
@@ -78,7 +80,8 @@ test("spawn creates isolated branch, canonical record, runs pi, and resumes its 
 	assert.equal(resumed.status, 0, resumed.stderr);
 	const resumedId = onlyJobId(resumed.stdout);
 	await waitForState(scratch.root, resumedId, "done");
-	assert.equal((await readFile(join(scratch.root, ".limen/jobs", resumedId, "base"), "utf8")).trim(), git(scratch.root, "rev-parse", `limen/${id}`));
+	const resumedBase = (await readFile(join(scratch.root, ".limen/jobs", resumedId, "base"), "utf8")).trim();
+	assert.equal(git(scratch.root, "merge-base", resumedBase, `limen/${id}`), resumedBase);
 	assert.equal(await readFile(join(worktree, "uncommitted.txt"), "utf8"), "keep me\n");
 });
 
@@ -196,7 +199,19 @@ async function modelForJob(root: string, id: string): Promise<string | undefined
 }
 
 test("independent jobs can run concurrently and are merely announced", async (context) => {
-	const fakePi = `#!/usr/bin/env node\nsetTimeout(() => { console.log("done") }, 400);\n`;
+	const fakePi = `#!/usr/bin/env node
+const { writeFileSync } = require("node:fs");
+const { execFileSync } = require("node:child_process");
+setTimeout(() => {
+  try {
+    const name = "candidate-" + Date.now() + "-" + process.pid + ".js";
+    writeFileSync(name, "export const candidate = true;\\n");
+    execFileSync("git", ["add", name]);
+    execFileSync("git", ["commit", "-m", "candidate"]);
+  } catch {}
+  console.log("done");
+}, 400);
+`;
 	const scratch = await scratchRepo(fakePi);
 	context.after(scratch.cleanup);
 	limen(scratch, "init");

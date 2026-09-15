@@ -8,6 +8,7 @@ import { git, limen, limenWithEnv, onlyJobId, scratchRepo, scratchWorkspace, wai
 
 const continuingFakePi = `#!/usr/bin/env node
 const { writeFileSync, mkdirSync } = require("node:fs");
+const { execFileSync } = require("node:child_process");
 const args = process.argv.slice(2);
 if (args[0] === "auth") process.exit(1);
 const dirIndex = args.indexOf("--session-dir");
@@ -16,11 +17,27 @@ if (dirIndex >= 0) {
   writeFileSync(args[dirIndex + 1] + "/session.jsonl", JSON.stringify({ type: "session" }) + "\\n");
 }
 writeFileSync("pi-args.json", JSON.stringify(args));
+try {
+  const name = "candidate-" + Date.now() + "-" + process.pid + ".js";
+  writeFileSync(name, "export const candidate = true;\\n");
+  execFileSync("git", ["add", name]);
+  execFileSync("git", ["commit", "-m", "candidate"]);
+} catch {}
 console.log(JSON.stringify({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "continued ok" }] } }));
 `;
 
 const sleeperFakePi = `#!/usr/bin/env node
-setTimeout(() => process.exit(0), 1500);
+const { writeFileSync } = require("node:fs");
+const { execFileSync } = require("node:child_process");
+setTimeout(() => {
+  try {
+    const name = "candidate-" + Date.now() + ".js";
+    writeFileSync(name, "export const candidate = true;\\n");
+    execFileSync("git", ["add", name]);
+    execFileSync("git", ["commit", "-m", "candidate"]);
+  } catch {}
+  process.exit(0);
+}, 1500);
 `;
 
 function worktreeFor(root: string, id: string): string {
@@ -162,7 +179,7 @@ test("continue restores a pruned finished checkout from its branch and saved ses
 	assert.equal(await readFile(join(parentDir, "session/zz-parent.jsonl"), "utf8"), transcript);
 	assert.equal(await readFile(join(parentDir, "state"), "utf8"), "done\n");
 	assert.equal(await readFile(join(worktree, "earned.txt"), "utf8"), "committed work survives\n");
-	assert.equal(git(worktree, "rev-parse", "HEAD"), tip);
+	assert.equal(git(worktree, "merge-base", tip, "HEAD"), tip);
 	const argv = JSON.parse(await readFile(join(worktree, "pi-args.json"), "utf8")) as string[];
 	assert.equal(argv[argv.indexOf("--continue") + 1], "refine committed work");
 });
@@ -214,7 +231,7 @@ for (const pruned of [false, true]) {
 		const job = join(workspace.root, ".limen/jobs", id);
 		assert.equal(await readFile(join(job, "repo"), "utf8"), "api\n");
 		assert.equal(await readFile(join(job, "base"), "utf8"), `${tip}\n`);
-		assert.equal(git(worktree, "rev-parse", "HEAD"), tip);
+		assert.equal(git(worktree, "merge-base", tip, "HEAD"), tip);
 		assert.equal(git(workspace.repositories.web, "rev-parse", branch), webTip);
 		const detail = limen(workspace, "jobs", id);
 		assert.match(detail.stdout, /repo api/);
@@ -243,7 +260,7 @@ for (const unavailable of ["missing", "occupied"] as const) {
 		const refused = limen(scratch, "continue", parent, "keep going");
 		assert.equal(refused.status, 1);
 		if (unavailable === "missing") {
-			assert.ok(refused.stderr.includes(`branch ${branch} is missing in ${scratch.root}; restore that branch before continuing`));
+			assert.match(refused.stderr, new RegExp(`branch ${branch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} is missing`));
 			assert.ok(!git(scratch.root, "branch", "--list", branch));
 		} else {
 			assert.match(refused.stderr, /already (?:checked out|used by worktree)/);
